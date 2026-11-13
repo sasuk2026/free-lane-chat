@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free Lane Chat · 免密免费模型 + OpenAI 兼容 API</title>
+<style>
+  :root{
+    --bg:#080c18; --panel:rgba(18,25,45,.74); --panel2:rgba(28,36,60,.7);
+    --line:rgba(255,255,255,.09); --txt:#e9edfb; --dim:#98a4c4; --dim2:#6f7b9c;
+    --accent:#7c6cff; --accent2:#22d3ee; --ok:#4ade80; --warn:#ffb454; --err:#ff7a8a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    color:var(--txt);background:
+      radial-gradient(1200px 620px at 8% -12%,rgba(124,108,255,.24),transparent 62%),
+      radial-gradient(900px 520px at 102% 2%,rgba(34,211,238,.13),transparent 60%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased;overflow:hidden;
+  }
+  button,input,textarea,select{font-family:inherit;color:inherit}
+  button{cursor:pointer}
+  a{color:var(--accent2);text-decoration:none}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  .app{display:flex;height:100vh;height:100dvh;overflow:hidden}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:312px;flex:0 0 312px;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,rgba(16,22,42,.92),rgba(11,16,32,.9));
+    border-right:1px solid var(--line);backdrop-filter:blur(18px);z-index:20;
+  }
+  .brand{padding:20px 18px 14px;border-bottom:1px solid var(--line)}
+  .brand-row{display:flex;align-items:center;gap:10px}
+  .logo{
+    width:34px;height:34px;border-radius:11px;flex:0 0 34px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:grid;place-items:center;font-weight:800;font-size:17px;color:#fff;
+    box-shadow:0 6px 22px rgba(124,108,255,.42);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.4px}
+  .brand p{margin:3px 0 0;font-size:11px;color:var(--dim2)}
+  .lane-box{padding:13px 14px 10px;border-bottom:1px solid var(--line)}
+  .lane-title{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--dim2);margin-bottom:9px;letter-spacing:.6px}
+  .lane-title button{background:none;border:0;color:var(--accent2);font-size:11px;padding:2px 4px}
+  .lane{display:flex;gap:9px;align-items:flex-start;padding:7px 9px;border-radius:10px;background:rgba(255,255,255,.035);margin-bottom:6px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px;margin-top:5px;background:var(--dim2)}
+  .dot.green{background:var(--ok);box-shadow:0 0 10px rgba(74,222,128,.7)}
+  .dot.amber{background:var(--warn);box-shadow:0 0 10px rgba(255,180,84,.6)}
+  .dot.red{background:var(--err)}
+  .lane b{display:block;font-size:12px;font-weight:600}
+  .lane small{display:block;font-size:10.5px;line-height:1.5;color:var(--dim);margin-top:2px}
+  .search-wrap{padding:12px 14px 7px}
+  .search{
+    width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);
+    background:rgba(255,255,255,.045);font-size:12px;outline:none;
+  }
+  .search:focus{border-color:rgba(124,108,255,.6);box-shadow:0 0 0 3px rgba(124,108,255,.12)}
+  .sort-row{display:flex;align-items:center;gap:7px;padding:0 14px 6px;font-size:10px;color:var(--dim2)}
+  .sort-row select{
+    flex:1;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:rgba(255,255,255,.045);font-size:10.5px;outline:none;
+  }
+  .bench-note{padding:0 14px 9px;font-size:9.5px;line-height:1.55;color:var(--dim2);border-bottom:1px solid var(--line)}
+  .bench-note b{color:var(--dim)}
+  .model-list{flex:1;overflow-y:auto;padding:8px 10px 12px}
+  .model-card{
+    padding:10px 11px;border-radius:11px;border:1px solid transparent;margin-bottom:6px;
+    background:rgba(255,255,255,.03);transition:.16s;cursor:pointer;
+  }
+  .model-card:hover{background:rgba(255,255,255,.07)}
+  .model-card.active{border-color:rgba(124,108,255,.65);background:linear-gradient(135deg,rgba(124,108,255,.19),rgba(34,211,238,.08))}
+  .mc-top{display:flex;align-items:center;gap:6px;justify-content:space-between}
+  .mc-name{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .mc-id{font-size:10px;color:var(--dim2);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .mc-status{font-size:9px;padding:2px 6px;border-radius:5px;white-space:nowrap;flex:0 0 auto}
+  .mc-status.ok{background:rgba(74,222,128,.16);color:#9df0bb}
+  .mc-status.think{background:rgba(255,180,84,.16);color:#ffd8a8}
+  .mc-status.bad{background:rgba(255,122,138,.16);color:#ffb0ba}
+  .mc-status.unk{background:rgba(255,255,255,.08);color:var(--dim)}
+  .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+  .tag{font-size:9.5px;padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.08);color:var(--dim)}
+  .tag.auto{background:rgba(34,211,238,.16);color:#8ee7f7}
+  .tag.train{background:rgba(255,122,138,.16);color:#ffb0ba}
+  .tag.vision{background:rgba(124,108,255,.18);color:#c3baff}
+  .tag.modal{background:rgba(34,211,238,.13);color:#8ee7f7}
+  .tag.moderated{background:rgba(255,180,84,.14);color:#ffd8a8}
+  .perf{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+  .pf{font-size:9px;padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.05);color:var(--dim);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .pf.fast{background:rgba(74,222,128,.12);color:#9df0bb}
+  .pf.slow{background:rgba(255,180,84,.12);color:#ffd8a8}
+  .pf.ctx{background:rgba(34,211,238,.11);color:#8ee7f7}
+  .side-foot{padding:11px 14px 14px;border-top:1px solid var(--line);font-size:10.5px;line-height:1.6;color:var(--dim2)}
+  .side-foot b{color:var(--dim)}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{
+    height:58px;flex:0 0 58px;display:flex;align-items:center;gap:10px;padding:0 18px;
+    border-bottom:1px solid var(--line);background:rgba(10,15,30,.55);backdrop-filter:blur(14px);
+  }
+  .menu-btn{display:none;background:none;border:0;font-size:20px;color:var(--txt);padding:4px}
+  .topbar-title{font-size:14px;font-weight:600}
+  .chip{
+    font-size:11px;padding:5px 10px;border-radius:20px;border:1px solid rgba(124,108,255,.4);
+    background:rgba(124,108,255,.12);color:#c9c0ff;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .spacer{flex:1}
+  .tbtn{
+    font-size:11.5px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);
+    background:rgba(255,255,255,.05);transition:.15s;white-space:nowrap;
+  }
+  .tbtn:hover{background:rgba(255,255,255,.11)}
+  .tbtn.link{border-color:rgba(34,211,238,.3);color:var(--accent2)}
+  .tsel{font-size:11.5px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.05);outline:none}
+  .notice{
+    flex:0 0 auto;margin:10px 18px 0;padding:9px 13px;border-radius:10px;font-size:11.5px;line-height:1.6;
+    background:linear-gradient(90deg,rgba(255,180,84,.13),rgba(255,122,138,.08));
+    border:1px solid rgba(255,180,84,.26);color:#ffd8a8;
+  }
+  .notice b{color:#ffc078}
+  .messages{flex:1;overflow-y:auto;padding:18px 22px 8px;scroll-behavior:smooth}
+  .empty{max-width:660px;margin:7vh auto 0;text-align:center}
+  .empty .big{font-size:26px;font-weight:700;letter-spacing:.5px;background:linear-gradient(90deg,#fff,#a9b6ff 55%,#7fe6f5);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .empty .sub{font-size:12.5px;color:var(--dim);line-height:1.9;margin-top:12px}
+  .quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px;margin-top:26px;text-align:left}
+  .quick button{
+    padding:12px 13px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);
+    font-size:12px;line-height:1.6;text-align:left;transition:.16s;
+  }
+  .quick button:hover{border-color:rgba(124,108,255,.55);transform:translateY(-2px)}
+  .quick span{display:block;color:var(--dim2);font-size:10.5px;margin-top:4px}
+
+  .msg{display:flex;gap:11px;margin:0 auto 18px;max-width:860px}
+  .avatar{width:29px;height:29px;flex:0 0 29px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:700;margin-top:2px}
+  .msg.user .avatar{background:linear-gradient(135deg,#4f46e5,#7c6cff);color:#fff}
+  .msg.assistant .avatar{background:linear-gradient(135deg,#0e7490,#22d3ee);color:#04202b}
+  .bubble{flex:1;min-width:0;padding:12px 14px;border-radius:13px;background:var(--panel);border:1px solid var(--line);font-size:13.5px;line-height:1.78}
+  .msg.user .bubble{background:linear-gradient(135deg,rgba(124,108,255,.22),rgba(124,108,255,.09));border-color:rgba(124,108,255,.3)}
+  .bubble pre{background:#070b16;border:1px solid var(--line);border-radius:9px;padding:11px 12px;overflow-x:auto;font-size:12px;line-height:1.6;margin:9px 0}
+  .bubble pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#c6e9f5}
+  .bubble code.inline{background:rgba(255,255,255,.09);padding:1px 5px;border-radius:5px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#a9e8f5}
+  .bubble li{margin-left:18px;padding:1px 0}
+  .bubble h3,.bubble h4{font-size:14.5px;margin:12px 0 5px}
+  .bubble strong{color:#fff}
+  .reasoning{
+    margin-bottom:9px;border-left:2px solid rgba(34,211,238,.4);padding-left:10px;
+    font-size:11.5px;line-height:1.65;color:var(--dim);white-space:pre-wrap;word-break:break-word;
+    max-height:66px;overflow:hidden;cursor:pointer;transition:max-height .2s;
+  }
+  .reasoning.open{max-height:1000px}
+  .reasoning-label{font-size:10px;color:var(--dim2);letter-spacing:.5px;margin-bottom:4px}
+  .raw{white-space:pre-wrap;word-break:break-word}
+  .meta{display:flex;gap:10px;align-items:center;margin-top:9px;font-size:10.5px;color:var(--dim2)}
+  .meta button{background:none;border:0;color:var(--dim);font-size:10.5px;padding:2px 5px;border-radius:5px}
+  .meta button:hover{background:rgba(255,255,255,.08);color:var(--txt)}
+  .errbox{color:#ffb0ba;font-size:12.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+  .cursor{display:inline-block;width:7px;height:14px;background:var(--accent2);vertical-align:-2px;animation:blink 1s steps(2) infinite;margin-left:2px}
+  @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+
+  .composer-wrap{flex:0 0 auto;padding:10px 18px 6px}
+  .composer{
+    max-width:860px;margin:0 auto;display:flex;gap:9px;align-items:flex-end;
+    padding:9px 10px 9px 13px;border-radius:15px;border:1px solid rgba(124,108,255,.28);
+    background:rgba(19,26,48,.88);box-shadow:0 10px 34px rgba(0,0,0,.32);
+  }
+  .composer:focus-within{border-color:rgba(124,108,255,.65);box-shadow:0 0 0 3px rgba(124,108,255,.11),0 10px 34px rgba(0,0,0,.32)}
+  textarea{
+    flex:1;resize:none;border:0;outline:none;background:transparent;font-size:13.5px;line-height:1.7;
+    max-height:150px;min-height:24px;padding:4px 0;
+  }
+  textarea::placeholder{color:var(--dim2)}
+  .send{
+    padding:9px 19px;border-radius:10px;border:0;font-size:12.5px;font-weight:600;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#5b8cff);box-shadow:0 5px 16px rgba(124,108,255,.34);white-space:nowrap;
+  }
+  .send:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+  .stop{padding:9px 16px;border-radius:10px;border:1px solid rgba(255,122,138,.45);background:rgba(255,122,138,.12);color:#ffb0ba;font-size:12.5px;white-space:nowrap}
+  .footnote{text-align:center;font-size:10.5px;color:var(--dim2);padding:6px 12px 11px}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:15}
+
+  /* ---------- API 接入弹窗 ---------- */
+  .modal{display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;padding:14px;background:rgba(3,6,16,.8);backdrop-filter:blur(7px)}
+  .modal.show{display:flex}
+  .mbox{
+    width:min(790px,100%);max-height:90vh;display:flex;flex-direction:column;border-radius:16px;
+    border:1px solid rgba(124,108,255,.4);background:linear-gradient(180deg,#161e36,#0c1225);
+    box-shadow:0 28px 90px rgba(0,0,0,.65);
+  }
+  .mhead{display:flex;align-items:center;gap:10px;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .mhead h2{font-size:15px;margin:0;flex:1}
+  .mclose{background:none;border:0;color:var(--dim);font-size:22px;line-height:1;padding:2px 6px}
+  .mbody{overflow-y:auto;padding:16px 18px 22px;font-size:12px;line-height:1.7}
+  .mbody h3{font-size:12.5px;margin:20px 0 9px;color:#c9c0ff}
+  .mbody h3:first-child{margin-top:0}
+  .fld{margin-bottom:11px}
+  .fld label{display:block;font-size:10.5px;color:var(--dim2);margin-bottom:5px;letter-spacing:.3px}
+  .fld .row{display:flex;gap:7px;align-items:stretch}
+  .fld code{
+    flex:1;min-width:0;padding:9px 10px;border-radius:9px;background:rgba(7,11,22,.85);border:1px solid var(--line);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;word-break:break-all;color:#c6e9f5;line-height:1.6;
+  }
+  .cp{flex:0 0 auto;padding:0 12px;border-radius:9px;border:1px solid rgba(124,108,255,.4);background:rgba(124,108,255,.14);color:#c9c0ff;font-size:11px}
+  .cp:hover{background:rgba(124,108,255,.28)}
+  .sc-input{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(7,11,22,.85);font-size:11px;outline:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre.code{
+    background:rgba(7,11,22,.85);border:1px solid var(--line);border-radius:9px;padding:11px 12px;
+    overflow-x:auto;font-size:10.5px;line-height:1.65;color:#c6e9f5;margin:0 0 8px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;
+  }
+  .hint{font-size:10.5px;color:var(--dim);line-height:1.75;background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.2);border-radius:9px;padding:10px 12px;margin:10px 0}
+  .hint b{color:#ffc078}
+  .mtable{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+  .mtable td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .mtable td:first-child{color:var(--dim2);width:150px;white-space:nowrap}
+
+  @media (max-width:900px){
+    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .22s;box-shadow:12px 0 40px rgba(0,0,0,.5)}
+    .sidebar.open{transform:translateX(0)}
+    .overlay.show{display:block}
+    .menu-btn{display:block}
+    .topbar{padding:0 12px;gap:7px}
+    .chip{display:none}
+    .tsel{display:none}
+    .tbtn{padding:7px 9px}
+    .notice{margin:9px 12px 0;font-size:10.5px}
+    .messages{padding:14px 13px 6px}
+    .composer-wrap{padding:8px 12px 5px}
+    .quick{grid-template-columns:1fr 1fr}
+    .mbody{padding:14px}
+    .mtable td:first-child{width:100px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-row">
+        <div class="logo">F</div>
+        <div><h1>Free Lane Chat</h1><p>免密免费模型 · OpenAI 兼容 API</p></div>
+      </div>
+    </div>
+    <div class="lane-box">
+      <div class="lane-title"><span>车道体检 · 只读</span><button id="recheck">重新体检 ↻</button></div>
+      <div id="laneList"><div class="lane"><span class="dot"></span><div><b>正在检测…</b><small>拉取上游模型清单</small></div></div></div>
+    </div>
+    <div class="search-wrap"><input class="search" id="modelSearch" placeholder="搜索免费模型（名称 / ID）" autocomplete="off"></div>
+    <div class="sort-row">
+      <span>排序</span>
+      <select id="sortSel">
+        <option value="default">推荐（实测可用优先）</option>
+        <option value="ttft">首字最快</option>
+        <option value="content">正文最快</option>
+        <option value="tps">生成吞吐最高</option>
+        <option value="context">上下文最大</option>
+      </select>
+    </div>
+    <div class="bench-note" id="benchNote">正在加载性能数据…</div>
+    <div class="model-list" id="modelList"><div style="padding:16px 10px;font-size:11.5px;color:var(--dim2)">正在加载免费模型清单…</div></div>
+    <div class="side-foot">
+      <b>来源</b>：Kilo AI 公共网关免费池（<code>isFree</code>），无需账号或 Key；OpenCode Zen 免密车道按出口 IP 配额。<br>
+      <b>提示</b>：prompt 会发往第三方上游，部分模型声明可能用于训练。免费额度随时可能限流或下线。
+    </div>
+  </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <div class="topbar-title">对话</div>
+      <div class="chip" id="currentChip">加载中…</div>
+      <div class="spacer"></div>
+      <select class="tsel" id="maxTokens" title="单次输出上限">
+        <option value="1024">输出 1K</option>
+        <option value="2048" selected>输出 2K</option>
+        <option value="4096">输出 4K</option>
+        <option value="8192">输出 8K</option>
+      </select>
+      <button class="tbtn link" id="apiBtn">🔌 API 接入</button>
+      <button class="tbtn" id="newChat">＋ 新对话</button>
+      <a class="tbtn link" href="https://github.com/Ebony-Vinyl/dsh-our-free-model" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+    </header>
+
+    <div class="notice">
+      <b>⚠️ 免费车道不是私有通道。</b> 你的提问与上下文会作为推理请求发往第三方上游（Kilo AI 公共网关）。请勿输入密码、API Key、个人信息、客户代码或商业机密；免费额度由上游单方面提供，可能随时限流、收费或下线。部分模型默认先长思考，输出上限建议 ≥ 2K。
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="empty" id="empty">
+        <div class="big">不用 Key，也能和前沿模型聊两句</div>
+        <div class="sub">左侧选一个免费模型，直接开始提问；点右上角「🔌 API 接入」可把这套免费模型用 OpenAI 兼容格式接到别的应用里。<br>模型清单实时来自上游，响应由第三方生成、本站只做转发。适合随手试试手感，不适合承载任何敏感内容。</div>
+        <div class="quick" id="quick">
+          <button data-q="用三句话解释什么是 SSE 流式输出，并举一个前端接收的例子。">解释 SSE 流式输出<span>概念 + 前端示例</span></button>
+          <button data-q="写一个 Python 函数，把列表按指定大小分块，要求用生成器实现。">写个分块生成器<span>Python · 小代码</span></button>
+          <button data-q="给我一份 30 分钟的晚间拉伸计划，用表格列出动作和时长。">晚间拉伸计划<span>表格 · 生活向</span></button>
+          <button data-q="用一句话说明你和付费 API 的区别，语气轻松一点。">聊聊你自己<span>一句话 · 轻松</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <textarea id="input" rows="1" placeholder="问点什么…（Enter 发送，Shift + Enter 换行）"></textarea>
+        <button class="send" id="send">发送</button>
+        <button class="stop" id="stop" hidden>停止</button>
+      </div>
+    </div>
+    <div class="footnote">本站不托管模型、不存储对话；响应由上游生成，本站仅作同源转发 · 免费 ≠ 无限，也 ≠ 私有</div>
+  </main>
+</div>
+
+<!-- ---------- API 接入弹窗 ---------- -->
+<div class="modal" id="apiModal">
+  <div class="mbox">
+    <div class="mhead">
+      <h2>🔌 用 OpenAI 兼容格式在别处调用</h2>
+      <button class="mclose" id="apiClose" title="关闭">×</button>
+    </div>
+    <div class="mbody" id="apiBody"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const state = {
+  models: [], current: localStorage.getItem('flc-model-v2') || '',
+  history: [], busy: false, controller: null,
+  sort: 'default', benchmarkAt: '', apiKey: 'sk-free-lane',
+  sharecode: new URL(location.href).searchParams.get('sharecode') || '',
+}
+
+/* ---------- 轻量 Markdown（先转义，代码块用占位符保护） ---------- */
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+function md(src){
+  let s = esc(src || '')
+  const blocks = []
+  s = s.replace(/```([\w-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const i = blocks.length
+    blocks.push('<pre><code>' + code.replace(/\n$/, '') + '</code></pre>')
+    return '\u0001BLK' + i + '\u0001'
+  })
+  s = s.replace(/`([^`\n]+)`/g, '<code class="inline">$1</code>')
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  s = s.replace(/^###\s?(.+)$/gm, '<h3>$1</h3>')
+  s = s.replace(/^##\s?(.+)$/gm, '<h3>$1</h3>')
+  s = s.replace(/^#\s?(.+)$/gm, '<h3>$1</h3>')
+  s = s.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>')
+  s = s.replace(/\n/g, '<br>')
+  s = s.replace(/\u0001BLK(\d+)\u0001/g, (_, i) => blocks[Number(i)])
+  return s
+}
+function fmt(n){
+  if (!n) return ''
+  return n >= 1000000 ? (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'M' : Math.round(n / 1024) + 'K'
+}
+
+/* ---------- 侧栏：车道体检 ---------- */
+async function loadStatus(force){
+  $('laneList').innerHTML = '<div class="lane"><span class="dot"></span><div><b>正在检测…</b><small>拉取上游模型清单</small></div></div>'
+  try {
+    const r = await fetch('/api/status' + (force ? '?refresh=1' : ''))
+    const d = await r.json()
+    const k = d.kilo, o = d.opencode
+    $('laneList').innerHTML =
+      '<div class="lane"><span class="dot ' + (k.ok ? 'green' : 'red') + '"></span><div>' +
+        '<b>Kilo 公共网关 · ' + (k.ok ? '可用' : '不可达') + '</b>' +
+        '<small>' + (k.models || 0) + ' 个免费模型 · ' + esc(k.note || '') + '</small></div></div>' +
+      '<div class="lane"><span class="dot ' + (o.ok ? 'amber' : 'red') + '"></span><div>' +
+        '<b>OpenCode Zen · 推理受限</b>' +
+        '<small>' + (o.models || 0) + ' 个零价模型 · ' + esc(o.note || '') + '</small></div></div>' +
+      '<div style="font-size:10px;color:var(--dim2);padding:2px 4px 0">默认车道：Kilo（体检只读，不消耗推理额度）</div>'
+  } catch (e) {
+    $('laneList').innerHTML = '<div class="lane"><span class="dot red"></span><div><b>体检失败</b><small>' + esc(e.message) + '</small></div></div>'
+  }
+}
+
+/* ---------- 侧栏：模型列表（含性能） ---------- */
+function statusOf(m){
+  const b = m.bench
+  if (!b) return { cls: 'unk', text: '未测' }
+  if (String(b.status).startsWith('http_401')) return { cls: 'bad', text: '需登录' }
+  if (String(b.status).startsWith('http_') || ['exception','upstream_error','empty_output'].includes(b.status))
+    return { cls: 'bad', text: '不可用' }
+  if (b.status === 'reasoning_only' || b.longThinking) return { cls: 'think', text: '长思考' }
+  if (b.usable) return { cls: 'ok', text: '实测可用' }
+  return { cls: 'unk', text: b.status || '—' }
+}
+function perfHtml(m){
+  const b = m.bench || {}
+  const out = []
+  if (m.context) out.push('<span class="pf ctx">' + fmt(m.context) + ' 上下文</span>')
+  if (m.maxOut) out.push('<span class="pf">' + fmt(m.maxOut) + ' 最大输出</span>')
+  if (b.ttft != null) {
+    const c = b.ttft < 1.5 ? 'fast' : b.ttft > 3 ? 'slow' : ''
+    out.push('<span class="pf ' + c + '">首字 ' + b.ttft + 's</span>')
+  }
+  if (b.contentTtft != null) out.push('<span class="pf">正文 ' + b.contentTtft + 's</span>')
+  if (b.tps != null) out.push('<span class="pf">' + b.tps + ' tok/s</span>')
+  if (b.reasonChars) out.push('<span class="pf">思考 ' + b.reasonChars + '字</span>')
+  if (!out.length) return ''
+  return '<div class="perf">' + out.join('') + '</div>'
+}
+function sortedModels(list){
+  if (state.sort === 'default') return list
+  const arr = [...list]
+  const num = (v, d) => (v == null || Number.isNaN(v)) ? d : v
+  if (state.sort === 'ttft') arr.sort((a,b) => num(a.bench?.ttft, 999) - num(b.bench?.ttft, 999))
+  if (state.sort === 'content') arr.sort((a,b) => num(a.bench?.contentTtft, 999) - num(b.bench?.contentTtft, 999))
+  if (state.sort === 'tps') arr.sort((a,b) => num(b.bench?.tps, 0) - num(a.bench?.tps, 0))
+  if (state.sort === 'context') arr.sort((a,b) => num(b.context, 0) - num(a.context, 0))
+  return arr
+}
+function renderModels(){
+  const q = $('modelSearch').value.trim().toLowerCase()
+  const list = sortedModels(state.models.filter(m =>
+    !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || (m.description||'').toLowerCase().includes(q)))
+  if (!list.length) {
+    $('modelList').innerHTML = '<div style="padding:16px 10px;font-size:11.5px;color:var(--dim2)">没有匹配的模型</div>'
+    return
+  }
+  $('modelList').innerHTML = list.map(m => {
+    const st = statusOf(m)
+    const tags = []
+    if (m.auto) tags.push('<span class="tag auto">自动路由</span>')
+    if (m.vision) tags.push('<span class="tag vision">视觉</span>')
+    if (m.video) tags.push('<span class="tag modal">视频</span>')
+    if (m.audioIn) tags.push('<span class="tag modal">音频</span>')
+    if (m.tools) tags.push('<span class="tag">工具</span>')
+    if (m.reasoning) tags.push('<span class="tag">推理</span>')
+    if (m.structured) tags.push('<span class="tag">结构化</span>')
+    if (m.moderated) tags.push('<span class="tag moderated">有审核</span>')
+    if (m.train) tags.push('<span class="tag train">⚠ 可能用于训练</span>')
+    const tip = m.description + (m.bench?.note ? '\n\n实测备注：' + m.bench.note : '')
+    return '<div class="model-card' + (m.id === state.current ? ' active' : '') + '" data-id="' + esc(m.id) + '" title="' + esc(tip) + '">' +
+      '<div class="mc-top"><span class="mc-name">' + esc(m.name) + '</span>' +
+        '<span class="mc-status ' + st.cls + '">' + st.text + '</span></div>' +
+      '<div class="mc-id">' + esc(m.id) + '</div>' +
+      '<div class="tags">' + tags.join('') + '</div>' +
+      perfHtml(m) + '</div>'
+  }).join('')
+  $('modelList').querySelectorAll('.model-card').forEach(el => {
+    el.onclick = () => selectModel(el.dataset.id)
+  })
+}
+function selectModel(id){
+  state.current = id
+  localStorage.setItem('flc-model-v2', id)
+  const m = state.models.find(x => x.id === id)
+  $('currentChip').textContent = m ? m.name : id
+  renderModels()
+  if ($('apiModal').classList.contains('show')) renderApiConfig()
+  closeSidebar()
+}
+async function loadModels(){
+  try {
+    const r = await fetch('/api/models')
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status)
+    state.models = d.models || []
+    state.benchmarkAt = d.benchmarkAt || ''
+    state.apiKey = d.apiKey || 'sk-free-lane'
+    if (!state.models.some(m => m.id === state.current)) {
+      state.current = state.models[0]?.id || 'kilo-auto/free'
+    }
+    const m = state.models.find(x => x.id === state.current)
+    $('currentChip').textContent = m ? m.name : state.current
+    const ok = state.models.filter(x => x.bench?.usable).length
+    const bad = state.models.filter(x => x.bench && !x.bench.usable).length
+    $('benchNote').innerHTML = state.benchmarkAt
+      ? '<b>实测快照 ' + esc(state.benchmarkAt) + '</b> · ' + ok + ' 个可用 / ' + bad + ' 个受限。首字=首个 token 延迟，正文=首个正文字延迟，tok/s 含思考输出。一次性采样，波动大，仅供参考。'
+      : '性能基准尚未加载。'
+    renderModels()
+    renderApiConfig()
+  } catch (e) {
+    $('modelList').innerHTML = '<div style="padding:14px 10px;font-size:11.5px;color:#ffb0ba">加载失败：' + esc(e.message) +
+      '<br><button class="tbtn" style="margin-top:9px" onclick="loadModels()">重试</button></div>'
+  }
+}
+
+/* ---------- API 接入配置 ---------- */
+function apiConfig(){
+  // 免 sharecode 直连地址（隧道指向本地已内置凭证的代理）。
+  // 注意：localhost.run 免费域名会周期性轮换，失效时只改这一行常量即可。
+  const CLEAN_BASE = 'https://ee26bf83fc4e6c2b-175-24-191-135.serveousercontent.com/v1'
+  const sc = state.sharecode.trim()
+  return {
+    sc,
+    base: CLEAN_BASE,
+    chat: CLEAN_BASE + '/chat/completions',
+    models: CLEAN_BASE + '/models',
+    key: state.apiKey,
+    model: state.current || 'kilo-auto/free',
+  }
+}
+function field(label, value, hint){
+  return '<div class="fld"><label>' + label + (hint ? ' · ' + hint : '') + '</label>' +
+    '<div class="row"><code>' + esc(value) + '</code>' +
+    '<button class="cp" data-copy="' + esc(value) + '">复制</button></div></div>'
+}
+function codeBlock(s){ return '<pre class="code">' + esc(s) + '</pre>' }
+function renderApiConfig(){
+  const c = apiConfig()
+  const curlPlain = 'curl "' + c.chat + '" \\\n' +
+    '  -H "Authorization: Bearer ' + c.key + '" \\\n' +
+    '  -H "Content-Type: application/json" \\\n' +
+    '  -d \'{"model":"' + c.model + '","messages":[{"role":"user","content":"你好，一句话介绍自己"}],"stream":false}\''
+  const curlStream = 'curl -N "' + c.chat + '" \\\n' +
+    '  -H "Authorization: Bearer ' + c.key + '" \\\n' +
+    '  -H "Content-Type: application/json" \\\n' +
+    '  -d \'{"model":"' + c.model + '","messages":[{"role":"user","content":"写一首短诗"}],"stream":true}\''
+  const py = 'from openai import OpenAI\n\n' +
+    'client = OpenAI(\n' +
+    '    base_url="' + c.base + '",\n' +
+    '    api_key="' + c.key + '",\n' +
+    ')\n\n' +
+    'stream = client.chat.completions.create(\n' +
+    '    model="' + c.model + '",\n' +
+    '    messages=[{"role": "user", "content": "你好，一句话介绍自己"}],\n' +
+    '    stream=True,\n' +
+    ')\n' +
+    'for chunk in stream:\n' +
+    '    print(chunk.choices[0].delta.content or "", end="", flush=True)'
+  const warn = ''
+  $('apiBody').innerHTML =
+    warn +
+    '<h3>① 三个要填的值</h3>' +
+    field('Base URL / API 地址', c.base, '已内置凭证 · 免 sharecode') +
+    field('API Key', c.key, '占位符，不是真密钥') +
+    field('模型 ID', c.model, '换模型就换这里') +
+    '<div class="hint"><b>这是免 sharecode 的直连地址。</b> 网关那层访问控制的凭证已经内置在服务端，所以你把这个地址填进第三方客户端时<b>不需要任何 sharecode</b>，也不会再遇到「模型的 key 不对或过期」这类被网关 403 误报的问题。<br><br><b>API Key 说明：</b>上游是免密公共池，服务端<b>不校验</b>这个 Key，它只是给「必须填 Key 才能保存」的客户端占位，填任意非空字符串都能用。<b>不要在这里填你真实的 OpenAI Key。</b></div>' +
+    '<div class="fld"><label>sharecode（本地址已免 sharecode，无需填写）</label>' +
+      '<input class="sc-input" id="scInput" value="" placeholder="无需填写 · 地址已内置凭证" disabled autocomplete="off"></div>' +
+
+    '<h3>② 直接用 curl 试</h3>' +
+    '<div style="font-size:10.5px;color:var(--dim2);margin-bottom:6px">非流式（一次性返回 JSON）</div>' +
+    codeBlock(curlPlain) +
+    '<div style="font-size:10.5px;color:var(--dim2);margin:10px 0 6px">流式（SSE，逐字输出）</div>' +
+    codeBlock(curlStream) +
+    field('模型清单接口', c.models, 'GET，返回 OpenAI 格式') +
+
+    '<h3>③ Python / Node 等 SDK</h3>' +
+    codeBlock(py) +
+
+    '<h3>④ 常见客户端怎么填</h3>' +
+    '<table class="mtable">' +
+      '<tr><td>服务商类型</td><td>选 <b>OpenAI / OpenAI Compatible / 自定义 OpenAI</b></td></tr>' +
+      '<tr><td>API 地址 / Base URL</td><td>填上面的 Base URL（已免 sharecode，原样复制即可）</td></tr>' +
+      '<tr><td>API Key</td><td>填 <code>' + esc(c.key) + '</code></td></tr>' +
+      '<tr><td>模型名称</td><td>填模型 ID，如 <code>' + esc(c.model) + '</code>；不要填 gpt-4o</td></tr>' +
+      '<tr><td>适用客户端</td><td>ChatBox、LobeChat、NextChat / ChatGPT-Next-Web、Open WebUI、Cherry Studio、各类 OpenAI SDK</td></tr>' +
+      '<tr><td>网页版客户端</td><td>后端已开 CORS 与 OPTIONS 预检，可直接跨域调用</td></tr>' +
+    '</table>' +
+
+    '<h3>⑤ 支持范围与边界</h3>' +
+    '<table class="mtable">' +
+      '<tr><td>已支持</td><td><code>GET /v1/models</code>、<code>POST /v1/chat/completions</code>（stream true/false）、<code>POST /v1/completions</code>（非流式）</td></tr>' +
+      '<tr><td>透传参数</td><td>model / messages / max_tokens / temperature / top_p / stop / seed / tools / tool_choice / response_format / stream_options 等</td></tr>' +
+      '<tr><td>未支持</td><td><code>/v1/responses</code>、<code>/v1/embeddings</code>、<code>/v1/images</code>、<code>/v1/audio</code>、多模态图片输入</td></tr>' +
+      '<tr><td>上游</td><td>Kilo AI 公共网关免费池；OpenCode Zen 免密车道当前 429 额度耗尽，未接入</td></tr>' +
+    '</table>' +
+    '<div class="hint"><b>⚠️ 别把这条免费车道当私有通道。</b> 所有 prompt、上下文、工具结果都会发往第三方上游；部分免费模型声明可能用提问改进服务。免费额度由上游单方面提供，随时可能 429 限流、收费或下线。请勿在接入的应用里传入密码、密钥、客户代码、个人信息或商业机密。</div>'
+  const si = $('scInput')
+  if (si) si.oninput = () => { state.sharecode = si.value; renderApiConfig() }
+}
+function openApi(){ $('apiModal').classList.add('show'); renderApiConfig() }
+function closeApi(){ $('apiModal').classList.remove('show') }
+$('apiBody').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copy]')
+  if (!b) return
+  navigator.clipboard?.writeText(b.dataset.copy)
+  b.textContent = '已复制 ✓'
+  setTimeout(() => { b.textContent = '复制' }, 1400)
+})
+
+/* ---------- 侧栏抽屉（移动端） ---------- */
+function openSidebar(){ $('sidebar').classList.add('open'); $('overlay').classList.add('show') }
+function closeSidebar(){ $('sidebar').classList.remove('open'); $('overlay').classList.remove('show') }
+
+/* ---------- 消息渲染 ---------- */
+function addMessage(role, text){
+  const box = $('messages')
+  const empty = $('empty')
+  if (empty) empty.remove()
+  const wrap = document.createElement('div')
+  wrap.className = 'msg ' + role
+  wrap.innerHTML = '<div class="avatar">' + (role === 'user' ? '你' : 'AI') + '</div><div class="bubble"></div>'
+  wrap.querySelector('.bubble').innerHTML = md(text)
+  box.appendChild(wrap)
+  box.scrollTop = box.scrollHeight
+  return wrap
+}
+function addAssistantStreaming(){
+  const box = $('messages')
+  const empty = $('empty')
+  if (empty) empty.remove()
+  const wrap = document.createElement('div')
+  wrap.className = 'msg assistant'
+  wrap.innerHTML =
+    '<div class="avatar">AI</div><div class="bubble">' +
+      '<div class="reasoning" id="rsn" hidden><div class="reasoning-label">思考过程（点击展开/收起）</div><div id="rsnText"></div></div>' +
+      '<div class="raw" id="rawText"></div><span class="cursor" id="cursor"></span>' +
+      '<div class="meta" id="meta"></div>' +
+    '</div>'
+  box.appendChild(wrap)
+  box.scrollTop = box.scrollHeight
+  return {
+    wrap,
+    raw: wrap.querySelector('#rawText'),
+    rsn: wrap.querySelector('#rsn'),
+    rsnText: wrap.querySelector('#rsnText'),
+    cursor: wrap.querySelector('#cursor'),
+    meta: wrap.querySelector('#meta'),
+  }
+}
+
+/* ---------- 发送 / 流式接收 ---------- */
+async function send(){
+  if (state.busy) return
+  const text = $('input').value.trim()
+  if (!text) return
+  $('input').value = ''
+  $('input').style.height = 'auto'
+  addMessage('user', text)
+  state.history.push({ role: 'user', content: text })
+
+  const ui = addAssistantStreaming()
+  let contentRaw = '', reasoningRaw = '', finished = false, usage = null
+  const started = performance.now()
+  state.busy = true
+  state.controller = new AbortController()
+  $('send').disabled = true
+  $('send').hidden = true
+  $('stop').hidden = false
+
+  let rafPending = false
+  const render = () => {
+    if (rafPending) return
+    rafPending = true
+    requestAnimationFrame(() => {
+      rafPending = false
+      ui.raw.textContent = contentRaw || ''
+      if (reasoningRaw) {
+        ui.rsn.hidden = false
+        ui.rsnText.textContent = reasoningRaw
+      }
+      $('messages').scrollTop = $('messages').scrollHeight
+    })
+  }
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: state.current,
+        messages: state.history,
+        max_tokens: Number($('maxTokens').value || 2048),
+      }),
+      signal: state.controller.signal,
+    })
+    const ct = resp.headers.get('content-type') || ''
+    if (!resp.ok || ct.includes('application/json')) {
+      const d = await resp.json().catch(() => ({}))
+      const er = d.error
+      const msg = (er && typeof er === 'object' ? (er.message || 'HTTP ' + resp.status)
+        : (er || 'HTTP ' + resp.status))
+      throw new Error(msg + (er?.upstream_body ? '\n' + er.upstream_body : ''))
+    }
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() || ''
+      for (const line of lines) {
+        const t = line.trim()
+        if (!t.startsWith('data:')) continue
+        const payload = t.slice(5).trim()
+        if (payload === '[DONE]') { finished = true; break }
+        try {
+          const j = JSON.parse(payload)
+          const delta = j.choices?.[0]?.delta || {}
+          if (typeof delta.content === 'string') contentRaw += delta.content
+          if (typeof delta.reasoning === 'string') reasoningRaw += delta.reasoning
+          if (typeof delta.reasoning_content === 'string') reasoningRaw += delta.reasoning_content
+          if (j.usage) usage = j.usage
+          render()
+        } catch {}
+      }
+      if (finished) break
+    }
+    await new Promise(r => requestAnimationFrame(r))
+    ui.raw.innerHTML = md(contentRaw || '（本次没有返回正文：该模型可能先长思考把输出上限吃光了，请调高「输出」上限或换一个模型）')
+    ui.cursor.remove()
+    if (reasoningRaw) {
+      ui.rsn.hidden = false
+      ui.rsnText.textContent = reasoningRaw
+      ui.rsn.onclick = () => ui.rsn.classList.toggle('open')
+    }
+    const secs = ((performance.now() - started) / 1000).toFixed(1)
+    const tokens = usage?.completion_tokens || usage?.total_tokens || ''
+    ui.meta.innerHTML = '<span>' + esc(state.current) + ' · ' + secs + 's' + (tokens ? ' · ' + tokens + ' tokens' : '') + '</span>' +
+      '<button id="copyBtn">复制回答</button>'
+    ui.meta.querySelector('#copyBtn').onclick = (e) => {
+      navigator.clipboard?.writeText(contentRaw)
+      e.target.textContent = '已复制 ✓'
+      setTimeout(() => { e.target.textContent = '复制回答' }, 1500)
+    }
+    state.history.push({ role: 'assistant', content: contentRaw || '(无正文)' })
+  } catch (e) {
+    ui.cursor?.remove()
+    if (e.name === 'AbortError') {
+      ui.raw.innerHTML = '<span style="color:var(--dim)">已停止生成。</span>'
+      if (contentRaw) state.history.push({ role: 'assistant', content: contentRaw })
+    } else {
+      ui.raw.innerHTML = '<div class="errbox">请求失败：' + esc(e.message) +
+        '<br><br>常见原因：上游免费额度限流（429）、地区限制（403）、模型需登录（401）、输出上限被思考吃光，或网络超时。换一个模型或调高输出上限再试。</div>'
+    }
+  } finally {
+    state.busy = false
+    state.controller = null
+    $('send').disabled = false
+    $('send').hidden = false
+    $('stop').hidden = true
+    $('messages').scrollTop = $('messages').scrollHeight
+  }
+}
+function stop(){ if (state.controller) state.controller.abort() }
+function newChat(){
+  if (state.busy) stop()
+  state.history = []
+  $('messages').innerHTML =
+    '<div class="empty" id="empty"><div class="big">新对话已就绪</div>' +
+    '<div class="sub">左侧选模型，或从下面的提示开始。对话不会保存在服务器上。</div>' +
+    '<div class="quick" id="quick">' +
+      '<button data-q="用三句话解释什么是 SSE 流式输出，并举一个前端接收的例子。">解释 SSE 流式输出<span>概念 + 前端示例</span></button>' +
+      '<button data-q="写一个 Python 函数，把列表按指定大小分块，要求用生成器实现。">写个分块生成器<span>Python · 小代码</span></button>' +
+      '<button data-q="给我一份 30 分钟的晚间拉伸计划，用表格列出动作和时长。">晚间拉伸计划<span>表格 · 生活向</span></button>' +
+      '<button data-q="用一句话说明你和付费 API 的区别，语气轻松一点。">聊聊你自己<span>一句话 · 轻松</span></button>' +
+    '</div></div>'
+  bindQuick()
+  closeSidebar()
+}
+function bindQuick(){
+  document.querySelectorAll('.quick button').forEach(b => {
+    b.onclick = () => { $('input').value = b.dataset.q; $('input').focus(); autoGrow() }
+  })
+}
+function autoGrow(){
+  const el = $('input')
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 150) + 'px'
+}
+
+/* ---------- 事件绑定 ---------- */
+$('send').onclick = send
+$('stop').onclick = stop
+$('newChat').onclick = newChat
+$('recheck').onclick = () => loadStatus(true)
+$('modelSearch').oninput = renderModels
+$('sortSel').onchange = (e) => { state.sort = e.target.value; renderModels() }
+$('menuBtn').onclick = openSidebar
+$('overlay').onclick = closeSidebar
+$('apiBtn').onclick = openApi
+$('apiClose').onclick = closeApi
+$('apiModal').onclick = (e) => { if (e.target === $('apiModal')) closeApi() }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeApi() })
+$('input').addEventListener('input', autoGrow)
+$('input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send() }
+})
+bindQuick()
+loadModels()
+loadStatus(false)
+</script>
+</body>
+</html>

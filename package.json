@@ -1,0 +1,13 @@
+{
+  "name": "free-lane-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "免密免费模型聊天网页 — 零依赖单端口 HTTP 服务",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
